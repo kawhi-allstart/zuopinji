@@ -16,6 +16,7 @@ VIDEO_EXTENSIONS = {".mp4", ".mov", ".webm", ".m4v"}
 DOCUMENT_EXTENSIONS = {".pdf", ".txt", ".md", ".doc", ".docx"}
 TEXT_EXTENSIONS = {".txt", ".md"}
 PROJECT_EXTENSIONS = IMAGE_EXTENSIONS | VIDEO_EXTENSIONS | DOCUMENT_EXTENSIONS
+WEB_VIDEO_SUFFIXES = ("-web", "_web")
 
 FOLDER_ALIASES = {
     "文字描述": "description",
@@ -49,13 +50,42 @@ CATEGORY_LABELS = {
 
 FOLDER_DISPLAY_LABELS = {
     "ai编程": "AI编程",
-    "APP开发": "APP开发",
+    "APP开发": "App开发",
     "网页设计稿": "网页设计",
-    "桌面程序设计": "桌面程序",
+    "桌面程序设计": "桌面应用开发",
     "su设计稿": "SketchUp",
 }
 
+PROJECT_COVER_OVERRIDES = {
+    "鄂州网驿科技港": "H22120533-bd-hqw-wqqg (1).jpg",
+    "江门网驿智造科技港": "2022-03-2.jpg",
+}
+
 CATEGORY_ORDER = {name: index for index, name in enumerate(CATEGORY_LABELS)}
+PROJECT_ORDER_OVERRIDES = {
+    "19-20年我参与的项目": {
+        "博亚时代中心": 0,
+        "Mo.C时光会": 1,
+    },
+    "21年至今我管理的项目": {
+        "舟山网驿科技智造港": 0,
+        "江门网驿智造科技港": 1,
+        "鄂州网驿科技港": 100,
+        "柳州网驿大健康产业园": 101,
+        "湘潭网驿电子信息产业园": 102,
+        "仙桃网驿智能制造园": 103,
+    }
+}
+
+IMAGE_FORMAT_PRIORITY = {
+    ".jpg": 0,
+    ".jpeg": 0,
+    ".png": 0,
+    ".webp": 1,
+    ".avif": 1,
+    ".gif": 2,
+    ".bmp": 2,
+}
 
 
 def natural_sort_key(text: str) -> list[object]:
@@ -79,6 +109,15 @@ def get_category_label(category_name: str | None) -> str:
 
 def format_folder_label(text: str) -> str:
     return FOLDER_DISPLAY_LABELS.get(text, text)
+
+
+def get_project_sort_priority(category_name: str, project_name: str) -> int:
+    category_overrides = PROJECT_ORDER_OVERRIDES.get(category_name, {})
+    return category_overrides.get(project_name, 50)
+
+
+def get_image_format_priority(path: Path) -> int:
+    return IMAGE_FORMAT_PRIORITY.get(path.suffix.lower(), 3)
 
 
 def file_hash(path: Path) -> str:
@@ -114,6 +153,33 @@ def list_files(folder: Path, extensions: set[str]) -> list[Path]:
         ],
         key=lambda path: natural_sort_key(path.name),
     )
+
+
+def trim_video_variant_suffix(stem: str) -> str:
+    lowered = stem.lower()
+    for suffix in WEB_VIDEO_SUFFIXES:
+        if lowered.endswith(suffix):
+            return stem[: -len(suffix)]
+    return stem
+
+
+def prefer_web_video_variants(paths: list[Path]) -> list[Path]:
+    preferred: dict[tuple[str, str], Path] = {}
+
+    for path in paths:
+        normalized_stem = trim_video_variant_suffix(path.stem).lower()
+        key = (path.suffix.lower(), normalized_stem)
+        current = preferred.get(key)
+        if current is None:
+            preferred[key] = path
+            continue
+
+        current_is_web = current.stem != trim_video_variant_suffix(current.stem)
+        candidate_is_web = path.stem != trim_video_variant_suffix(path.stem)
+        if candidate_is_web and not current_is_web:
+            preferred[key] = path
+
+    return sorted(preferred.values(), key=lambda path: natural_sort_key(path.name))
 
 
 def is_ignored_dir(path: Path) -> bool:
@@ -224,7 +290,7 @@ def score_cover(path: Path) -> tuple[int, list[object]]:
         score += 18
     if "nk" in name:
         score += 12
-    return (-score, natural_sort_key(path.name))
+    return (-score, get_image_format_priority(path), -path.stat().st_size, natural_sort_key(path.name))
 
 
 def score_showcase(path: Path, asset_type: str) -> tuple[int, int, list[object]]:
@@ -255,7 +321,7 @@ def score_showcase(path: Path, asset_type: str) -> tuple[int, int, list[object]]
     if "图片" in path.stem:
         score -= 2
 
-    return (-score, -path.stat().st_size, natural_sort_key(path.name))
+    return (-score, get_image_format_priority(path), -path.stat().st_size, natural_sort_key(path.name))
 
 
 def pick_showcase_images(renderings: list[Path], photos: list[Path]) -> list[Path]:
@@ -328,11 +394,11 @@ def build_summary(
     asset_summary = build_asset_summary(render_count, photo_count, doc_count, video_count)
 
     if "AI编程" in lineage_labels:
-        if "APP开发" in lineage_labels:
+        if "App开发" in lineage_labels:
             return f"{project_name} 为移动端产品方向的界面方案，围绕功能结构、页面组织与视觉风格进行呈现。"
         if "网页设计" in lineage_labels:
             return f"{project_name} 为网页与可视化方向的界面设计，重点展示信息架构、交互层级与视觉表达。"
-        if "桌面程序" in lineage_labels:
+        if "桌面应用开发" in lineage_labels:
             return f"{project_name} 为桌面效率工具方向的界面方案，展示功能布局、模块关系与操作体验。"
         return f"{project_name} 为数字产品方向的设计研究，展示界面结构、交互逻辑与视觉表达。"
 
@@ -376,6 +442,7 @@ def build_project(project_dir: Path, category_name: str | None = None) -> dict[s
     rendering_images = list_files(named_subfolders["renderings"], IMAGE_EXTENSIONS) if "renderings" in named_subfolders else root_images
     real_photos = list_files(named_subfolders["photos"], IMAGE_EXTENSIONS) if "photos" in named_subfolders else []
     videos = list_files(named_subfolders["videos"], VIDEO_EXTENSIONS) if "videos" in named_subfolders else list_files(project_dir, VIDEO_EXTENSIONS)
+    videos = prefer_web_video_variants(videos)
     description_files = list_files(named_subfolders["description"], DOCUMENT_EXTENSIONS) if "description" in named_subfolders else []
 
     if "renderings" in named_subfolders:
@@ -407,9 +474,14 @@ def build_project(project_dir: Path, category_name: str | None = None) -> dict[s
         return None
 
     visual_assets = rendering_images or real_photos
-    cover = sorted(visual_assets, key=score_cover)[0] if visual_assets else None
+    override_name = PROJECT_COVER_OVERRIDES.get(project_name) or PROJECT_COVER_OVERRIDES.get(project_dir.name)
+    override_cover = None
+    if override_name:
+        override_cover = next((path for path in rendering_images + real_photos if path.name == override_name), None)
+
+    cover = override_cover or (sorted(visual_assets, key=score_cover)[0] if visual_assets else None)
     showcase_images = pick_showcase_images(rendering_images, real_photos)
-    if cover and cover not in showcase_images and visual_assets:
+    if cover and visual_assets:
         showcase_images = [cover] + [path for path in showcase_images if path != cover]
     previews = showcase_images[:3]
 
@@ -438,9 +510,10 @@ def build_project(project_dir: Path, category_name: str | None = None) -> dict[s
     )
 
     return {
-        "slug": make_slug(project_dir.name),
+        "slug": make_slug(project_name),
         "category": category_name or "项目归档",
         "categoryLabel": get_category_label(category_name),
+        "sourcePath": normalize_path(project_dir),
         "name": project_name,
         "lineage": lineage_labels,
         "summary": build_summary(
@@ -462,7 +535,7 @@ def build_project(project_dir: Path, category_name: str | None = None) -> dict[s
         "photos": [normalize_path(path) for path in real_photos],
         "videos": [
             {
-                "name": file.stem,
+                "name": trim_video_variant_suffix(file.stem),
                 "path": normalize_path(file),
                 "extension": file.suffix.lower().lstrip("."),
             }
@@ -491,6 +564,7 @@ def main() -> None:
     projects.sort(
         key=lambda item: (
             CATEGORY_ORDER.get(str(item["category"]), len(CATEGORY_ORDER)),  # type: ignore[index]
+            get_project_sort_priority(str(item["category"]), str(item["name"])),  # type: ignore[index]
             -(item["counts"]["renderings"] + item["counts"]["photos"]),  # type: ignore[index]
             -item["counts"]["documents"],  # type: ignore[index]
             natural_sort_key(str(item["name"])),

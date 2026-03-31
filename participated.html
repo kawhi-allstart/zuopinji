@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="参与项目介绍页，展示地产与商务办公项目中的方案表达、空间理解与界面塑造经验。"
+    />
+    <title>参与项目 | 袁润的作品集</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600;6..72,700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body data-page="category" data-category="19-20年我参与的项目">
+    <div class="page-shell">
+      <header class="site-header">
+        <a class="brand-lockup" href="./index.html" aria-label="返回首页">
+          <span class="brand-mark" id="brand-mark">DM</span>
+          <div>
+            <p class="brand-title" id="brand-title"></p>
+            <p class="brand-subtitle" id="brand-subtitle"></p>
+          </div>
+        </a>
+
+        <nav class="site-nav" aria-label="主导航"></nav>
+      </header>
+
+      <main>
+        <section class="hero section-shell" id="overview">
+          <div class="hero-copy">
+            <p class="eyebrow" id="hero-eyebrow"></p>
+            <h1 id="hero-title"></h1>
+            <p class="hero-summary" id="hero-summary"></p>
+            <p class="hero-target" id="hero-target"></p>
+
+            <div class="hero-actions">
+              <a class="button button-primary" id="hero-primary" href="./index.html"></a>
+              <a class="button button-secondary" id="hero-secondary" href="#projects"></a>
+            </div>
+
+            <div class="hero-stats" id="hero-stats"></div>
+          </div>
+
+          <div class="hero-board">
+            <div class="section-head section-head-tight">
+              <p class="section-tag" id="hero-board-tag"></p>
+              <h2 id="hero-board-title"></h2>
+            </div>
+            <div class="category-card-grid" id="hero-category-grid"></div>
+          </div>
+        </section>
+
+        <section class="section-shell" id="projects">
+          <div class="section-head reveal">
+            <p class="section-tag" id="project-section-tag"></p>
+            <h2 id="project-section-title"></h2>
+            <p class="section-intro" id="project-section-intro"></p>
+          </div>
+          <div class="project-list" id="project-list"></div>
+        </section>
+      </main>
+
+      <footer class="site-footer">
+        <p id="footer-text"></p>
+      </footer>
+    </div>
+
+    <dialog class="gallery-dialog" id="gallery-dialog">
+      <div class="dialog-shell">
+        <button class="dialog-close" id="dialog-close" type="button" aria-label="关闭图库">×</button>
+        <div class="dialog-stage">
+          <div class="dialog-stage-badge" id="dialog-stage-badge"></div>
+          <button class="dialog-nav" id="dialog-prev" type="button" aria-label="上一张">‹</button>
+          <img class="dialog-image" id="dialog-image" alt="" />
+          <video class="dialog-video" id="dialog-video" controls playsinline preload="metadata" hidden></video>
+          <button class="dialog-nav" id="dialog-next" type="button" aria-label="下一张">›</button>
+        </div>
+        <aside class="dialog-sidebar">
+          <p class="section-tag" id="dialog-project-label">项目详情</p>
+          <h2 class="dialog-title" id="dialog-title"></h2>
+          <p class="dialog-summary" id="dialog-summary"></p>
+          <div class="pill-grid" id="dialog-labels"></div>
+          <div class="dialog-media-groups" id="dialog-thumbs"></div>
+          <div class="doc-links" id="dialog-docs"></div>
+        </aside>
+      </div>
+    </dialog>
+
+    <template id="stat-template">
+      <article class="stat-card">
+        <p class="stat-value"></p>
+        <p class="stat-label"></p>
+      </article>
+    </template>
+
+    <template id="category-card-template">
+      <a class="category-card reveal">
+        <div class="category-card-media">
+          <img alt="" loading="lazy" />
+        </div>
+        <div class="category-card-copy">
+          <p class="panel-label category-card-kicker"></p>
+          <h3 class="category-card-title"></h3>
+          <p class="category-card-body"></p>
+          <div class="category-card-meta"></div>
+        </div>
+      </a>
+    </template>
+
+    <template id="project-template">
+      <article class="project-card reveal">
+        <button class="project-cover" type="button">
+          <img class="project-cover-image" alt="" loading="lazy" />
+          <div class="project-cover-meta">
+            <p class="panel-label project-cover-label"></p>
+            <p class="project-cover-count"></p>
+          </div>
+        </button>
+
+        <div class="project-copy">
+          <div class="project-topline">
+            <p class="panel-label project-index"></p>
+            <p class="project-counts"></p>
+          </div>
+          <h3 class="project-title"></h3>
+          <p class="project-summary"></p>
+          <div class="project-media-strip"></div>
+          <div class="metric-grid project-highlights"></div>
+          <div class="pill-grid project-labels"></div>
+          <div class="doc-links project-docs"></div>
+        </div>
+      </article>
+    </template>
+
+    <template id="doc-template">
+      <a class="doc-link" target="_blank" rel="noreferrer"></a>
+    </template>
+
+    <script src="./content.js"></script>
+    <script src="./portfolio-data.js"></script>
+    <script src="./script.js"></script>
+  </body>
+</html>

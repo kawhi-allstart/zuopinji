@@ -14,6 +14,32 @@ const CATEGORY_ORDER = [
   "19-20年我参与的项目",
   "我的作品",
 ];
+const PERSONAL_FOLDER_ORDER = [
+  "BIM设计稿",
+  "su设计稿",
+];
+const PERSONAL_LABEL_DISPLAY = {
+  "APP开发": "App开发",
+  "桌面程序": "桌面应用开发",
+  "桌面程序设计": "桌面应用开发",
+};
+const PERSONAL_CHILD_GROUP_ORDER = {
+  "AI编程": ["网页设计", "App开发", "桌面应用开发"],
+};
+const PERSONAL_PROJECT_ORDER = {
+  "AI编程/网页设计": ["可视化管理系统", "公司网站"],
+};
+const HOME_PAGE_KEY = "home";
+const PAGE_MODE = document.body.dataset.page || HOME_PAGE_KEY;
+const PAGE_CATEGORY = document.body.dataset.category || "";
+const ALL_PROJECT_ENTRIES = portfolioData.projects.map((project, index) => ({ project, index }));
+const NAV_ITEMS = [
+  { key: HOME_PAGE_KEY, label: "首页", href: "./index.html" },
+  { key: "21年至今我管理的项目", label: "管理的项目", href: "./managed.html" },
+  { key: "19-20年我参与的项目", label: "参与的项目", href: "./participated.html" },
+  { key: "我的作品", label: "我的作品", href: "./personal.html" },
+];
+const textCollator = new Intl.Collator("zh-Hans-CN", { numeric: true, sensitivity: "base" });
 
 const GENERIC_LABELS = new Set(["效果图", "真实照片", "视频", "方案文件"]);
 const MEDIA_META = {
@@ -43,7 +69,104 @@ function getCategoryContent(name) {
   return siteContent.categories[name] || {
     displayTitle: name,
     shortLabel: name,
-    description: "项目资料已归档到当前板块。"
+    description: "项目资料已归档到当前板块。",
+    cardSummary: ""
+  };
+}
+
+function isHomePage() {
+  return PAGE_MODE === HOME_PAGE_KEY;
+}
+
+function isCategoryPage() {
+  return PAGE_MODE === "category" && Boolean(PAGE_CATEGORY);
+}
+
+function getCurrentPageKey() {
+  return isCategoryPage() ? PAGE_CATEGORY : HOME_PAGE_KEY;
+}
+
+function getCategoryHref(categoryName) {
+  return NAV_ITEMS.find((item) => item.key === categoryName)?.href || "./index.html";
+}
+
+function getPageEntries() {
+  if (!isCategoryPage()) {
+    return ALL_PROJECT_ENTRIES;
+  }
+  return ALL_PROJECT_ENTRIES.filter(({ project }) => project.category === PAGE_CATEGORY);
+}
+
+function sumProjectCounts(entries = ALL_PROJECT_ENTRIES) {
+  return entries.reduce((totals, { project }) => {
+    totals.projects += 1;
+    totals.renderings += project.counts.renderings;
+    totals.photos += project.counts.photos;
+    totals.videos += project.counts.videos;
+    totals.documents += project.counts.documents;
+    return totals;
+  }, {
+    projects: 0,
+    renderings: 0,
+    photos: 0,
+    videos: 0,
+    documents: 0,
+  });
+}
+
+function getPageContent() {
+  if (isHomePage()) {
+    return {
+      documentTitle: "袁润的作品集",
+      hero: {
+        eyebrow: siteContent.hero.eyebrow,
+        title: siteContent.hero.title,
+        summary: siteContent.hero.summary,
+        target: siteContent.hero.target,
+        showActions: false,
+        primaryCta: {
+          label: "管理的项目",
+          href: getCategoryHref("21年至今我管理的项目"),
+        },
+        secondaryCta: {
+          label: "我的作品",
+          href: getCategoryHref("我的作品"),
+        },
+      },
+      heroBoard: siteContent.heroBoard,
+      projectSection: siteContent.projectSection,
+      showProjects: false,
+    };
+  }
+
+  const content = getCategoryContent(PAGE_CATEGORY);
+  return {
+    documentTitle: `${content.displayTitle} | 袁润的作品集`,
+    hero: {
+      eyebrow: "",
+      title: content.displayTitle,
+      summary: content.description,
+      target: "当前页面仅加载该板块内容，浏览更轻；点击项目封面仍可查看完整图库。",
+      showActions: true,
+      primaryCta: {
+        label: "返回首页",
+        href: "./index.html",
+      },
+      secondaryCta: {
+        label: "查看项目列表",
+        href: "#projects",
+      },
+    },
+    heroBoard: {
+      tag: "Browse Pages",
+      title: "切换其他板块",
+    },
+    projectSection: {
+      tag: content.shortLabel,
+      title: content.displayTitle,
+      intro: `${content.description} 当前页面仅展示该板块项目。`,
+    },
+    showProjects: true,
   };
 }
 
@@ -109,9 +232,15 @@ function createVideoElement(path, className, options = {}) {
   return video;
 }
 
+function formatPersonalLabel(label) {
+  return PERSONAL_LABEL_DISPLAY[label] || label;
+}
+
 function getDisplayLabels(project) {
-  const filtered = project.labels.filter((label) => !GENERIC_LABELS.has(label));
-  return filtered;
+  const filtered = project.labels
+    .filter((label) => !GENERIC_LABELS.has(label))
+    .map((label) => formatPersonalLabel(label));
+  return filtered.filter((label, index) => label && filtered.indexOf(label) === index);
 }
 
 function getMediaTypeFromPath(project, path) {
@@ -225,6 +354,9 @@ function getFirstGalleryIndex(project, type) {
 }
 
 function getProjectCoverLabel(project) {
+  if ((project.videos || []).length > 0) {
+    return "视频";
+  }
   if (project.renderings.length > 0 && project.photos.length > 0) {
     return "效果图 / 实景";
   }
@@ -234,24 +366,15 @@ function getProjectCoverLabel(project) {
   if (project.photos.length > 0) {
     return "实景";
   }
-  if ((project.videos || []).length > 0) {
-    return "视频";
-  }
   return project.highlights[0] || "项目资料";
 }
 
 function getProjectCoverHint(project) {
-  if (project.renderings.length > 0 && project.photos.length > 0) {
-    return "点击封面或下方分区查看全部图片";
-  }
-  if (project.renderings.length > 0) {
-    return "点击封面或下方查看全部效果图";
-  }
-  if (project.photos.length > 0) {
-    return "点击封面或下方查看全部实景";
-  }
   if ((project.videos || []).length > 0) {
     return "点击封面查看视频播放";
+  }
+  if (project.renderings.length > 0 || project.photos.length > 0) {
+    return "";
   }
   return MEDIA_META.asset.coverHint;
 }
@@ -319,10 +442,10 @@ function createMediaPreviewCard(project, projectIndex, type) {
   return button;
 }
 
-function groupProjects(projects) {
+function groupProjects(entries = ALL_PROJECT_ENTRIES) {
   const map = new Map();
 
-  projects.forEach((project, index) => {
+  entries.forEach(({ project, index }) => {
     const key = project.category || "项目归档";
     if (!map.has(key)) {
       map.set(key, []);
@@ -346,74 +469,515 @@ function groupProjects(projects) {
     }));
 }
 
-function formatCategoryMeta(group) {
+function getProjectLineage(project) {
+  return Array.isArray(project.lineage) ? project.lineage.filter(Boolean) : [];
+}
+
+function getProjectSourcePath(project) {
+  return project.sourcePath || [...getProjectLineage(project), project.name].join("/");
+}
+
+function comparePath(a, b) {
+  const normalizedA = a.toLowerCase();
+  const normalizedB = b.toLowerCase();
+  if (normalizedA < normalizedB) {
+    return -1;
+  }
+  if (normalizedA > normalizedB) {
+    return 1;
+  }
+  return 0;
+}
+
+function compareText(a, b) {
+  return textCollator.compare(a, b);
+}
+
+function comparePersonalFolderTitle(a, b) {
+  const orderA = PERSONAL_FOLDER_ORDER.indexOf(a);
+  const orderB = PERSONAL_FOLDER_ORDER.indexOf(b);
+  const safeA = orderA === -1 ? PERSONAL_FOLDER_ORDER.length : orderA;
+  const safeB = orderB === -1 ? PERSONAL_FOLDER_ORDER.length : orderB;
+
+  if (safeA !== safeB) {
+    return safeA - safeB;
+  }
+
+  return compareText(a, b);
+}
+
+function comparePersonalChildGroup(folderTitle, a, b, orderKeyA, orderKeyB) {
+  const orderedTitles = PERSONAL_CHILD_GROUP_ORDER[folderTitle];
+  if (orderedTitles) {
+    const orderA = orderedTitles.indexOf(a);
+    const orderB = orderedTitles.indexOf(b);
+    const safeA = orderA === -1 ? orderedTitles.length : orderA;
+    const safeB = orderB === -1 ? orderedTitles.length : orderB;
+
+    if (safeA !== safeB) {
+      return safeA - safeB;
+    }
+  }
+
+  const titleCompare = compareText(a, b);
+  if (titleCompare !== 0) {
+    return titleCompare;
+  }
+
+  return comparePath(orderKeyA, orderKeyB);
+}
+
+function compareProjectItems(a, b) {
+  const lineageA = getProjectLineage(a.project).map((label) => formatPersonalLabel(label)).join("/");
+  const lineageB = getProjectLineage(b.project).map((label) => formatPersonalLabel(label)).join("/");
+  if (lineageA && lineageA === lineageB) {
+    const orderedTitles = PERSONAL_PROJECT_ORDER[lineageA];
+    if (orderedTitles) {
+      const orderA = orderedTitles.indexOf(a.project.name);
+      const orderB = orderedTitles.indexOf(b.project.name);
+      const safeA = orderA === -1 ? orderedTitles.length : orderA;
+      const safeB = orderB === -1 ? orderedTitles.length : orderB;
+      if (safeA !== safeB) {
+        return safeA - safeB;
+      }
+    }
+  }
+
+  const pathA = getProjectSourcePath(a.project);
+  const pathB = getProjectSourcePath(b.project);
+  const pathCompare = comparePath(pathA, pathB);
+  if (pathCompare !== 0) {
+    return pathCompare;
+  }
+  return compareText(a.project.name, b.project.name);
+}
+
+function formatCategoryMeta(group, variant = "default") {
+  if (group.category === "我的作品") {
+    const topFolders = new Set(group.items.map((item) => getProjectLineage(item.project)[0] || item.project.name));
+    if (variant === "card") {
+      return `${group.items.length} 个作品`;
+    }
+    return `${topFolders.size} 个目录 / ${group.items.length} 个作品`;
+  }
   return `${group.items.length} 个项目`;
 }
 
+function formatCountValue(value) {
+  return String(value).padStart(2, "0");
+}
+
+function renderPrimaryNav() {
+  const nav = qs(".site-nav");
+  if (!nav) {
+    return;
+  }
+
+  nav.hidden = false;
+  nav.innerHTML = "";
+  NAV_ITEMS.forEach((item) => {
+    const link = document.createElement("a");
+    link.href = item.href;
+    link.dataset.pageKey = item.key;
+    link.textContent = item.label;
+    if (item.key === getCurrentPageKey()) {
+      link.classList.add("is-active");
+      link.setAttribute("aria-current", "page");
+    }
+    nav.appendChild(link);
+  });
+}
+
+function buildProjectCard(template, item, indexLabel) {
+  const { project, index } = item;
+  const fragment = template.content.cloneNode(true);
+  const card = fragment.querySelector(".project-card");
+  const coverButton = fragment.querySelector(".project-cover");
+  const coverImage = fragment.querySelector(".project-cover-image");
+  const coverHint = getProjectCoverHint(project);
+  const coverHintNode = fragment.querySelector(".project-cover-count");
+  const labelsRoot = fragment.querySelector(".project-labels");
+  const docsRoot = fragment.querySelector(".project-docs");
+  const mediaStrip = fragment.querySelector(".project-media-strip");
+
+  fragment.querySelector(".project-cover-label").textContent = getProjectCoverLabel(project);
+  if (coverHint) {
+    coverHintNode.textContent = coverHint;
+  } else {
+    coverHintNode.remove();
+  }
+  fragment.querySelector(".project-index").textContent = indexLabel;
+  fragment.querySelector(".project-counts").textContent = formatProjectAssetCount(project);
+  fragment.querySelector(".project-title").textContent = project.name;
+  fragment.querySelector(".project-summary").textContent = project.summary;
+
+  if ((project.videos || []).length > 0) {
+    coverImage.remove();
+    coverButton.classList.add("has-video");
+    coverButton.prepend(createVideoElement(project.videos[0].path, "project-cover-video", {
+      autoplay: true,
+      muted: true,
+      loop: true,
+    }));
+  } else if (project.cover) {
+    coverImage.src = toAssetUrl(project.cover);
+    coverImage.alt = `${project.name} 封面图`;
+  } else {
+    coverImage.remove();
+    coverButton.classList.add("is-static");
+    coverButton.prepend(createFallback(project.name, getProjectFallbackDetail(project), "project-cover-fallback"));
+  }
+
+  fragment.querySelector(".project-highlights").remove();
+  ["rendering", "photo", "video"].forEach((type) => {
+    const cardNode = createMediaPreviewCard(project, index, type);
+    if (cardNode) {
+      mediaStrip.appendChild(cardNode);
+    }
+  });
+  if (!mediaStrip.children.length) {
+    mediaStrip.remove();
+  }
+
+  getDisplayLabels(project).forEach((label) => labelsRoot.appendChild(createPill(label)));
+  [...project.documents, ...(project.videos || [])].forEach((doc) => docsRoot.appendChild(buildDocLink(doc)));
+
+  if (project.showcaseImages.length > 0 || (project.videos || []).length > 0) {
+    const coverOpenIndex = (project.videos || []).length > 0 ? getFirstGalleryIndex(project, "video") : 0;
+    coverButton.addEventListener("click", () => openLightbox(index, Math.max(0, coverOpenIndex)));
+  } else {
+    coverButton.disabled = true;
+  }
+
+  return card;
+}
+
+function buildPersonalFolderGroups(items) {
+  const folderMap = new Map();
+
+  items.forEach((item) => {
+    const lineage = getProjectLineage(item.project);
+    const topTitle = formatPersonalLabel(lineage[0] || item.project.name);
+    if (!folderMap.has(topTitle)) {
+      folderMap.set(topTitle, {
+        title: topTitle,
+        orderKey: getProjectSourcePath(item.project),
+        directItems: [],
+        childGroups: new Map(),
+      });
+    }
+
+    const folderGroup = folderMap.get(topTitle);
+    if (lineage.length > 1) {
+      const childTitle = formatPersonalLabel(lineage[1]);
+      if (!folderGroup.childGroups.has(childTitle)) {
+        folderGroup.childGroups.set(childTitle, {
+          title: childTitle,
+          displayTitle: childTitle,
+          orderKey: getProjectSourcePath(item.project),
+          items: [],
+        });
+      }
+      folderGroup.childGroups.get(childTitle).items.push(item);
+      return;
+    }
+
+    folderGroup.directItems.push(item);
+  });
+
+  return Array.from(folderMap.values())
+    .sort((a, b) => {
+      const titleCompare = comparePersonalFolderTitle(a.title, b.title);
+      if (titleCompare !== 0) {
+        return titleCompare;
+      }
+      return comparePath(a.orderKey, b.orderKey);
+    })
+    .map((folderGroup) => ({
+      title: folderGroup.title,
+      directItems: folderGroup.directItems.sort(compareProjectItems),
+      childGroups: Array.from(folderGroup.childGroups.values())
+        .sort((a, b) => comparePersonalChildGroup(folderGroup.title, a.displayTitle, b.displayTitle, a.orderKey, b.orderKey))
+        .map((childGroup) => ({
+          title: childGroup.title,
+          displayTitle: childGroup.displayTitle,
+          items: childGroup.items.sort(compareProjectItems),
+        })),
+    }));
+}
+
+function getPersonalFolderMeta(folderGroup) {
+  const childCount = folderGroup.childGroups.reduce((sum, childGroup) => sum + childGroup.items.length, 0);
+  const total = folderGroup.directItems.length + childCount;
+  if (folderGroup.childGroups.length > 0) {
+    return `${folderGroup.childGroups.length} 个子目录 / ${total} 个项目`;
+  }
+  return `${total} 个项目`;
+}
+
+function getPersonalFolderSummary(folderTitle) {
+  const orderedTitles = PERSONAL_CHILD_GROUP_ORDER[folderTitle];
+  if (!orderedTitles || orderedTitles.length === 0) {
+    return "";
+  }
+  return `分板块：${orderedTitles.join(" / ")}`;
+}
+
+function renderPersonalProjects(section, group, template) {
+  const stack = document.createElement("div");
+  stack.className = "folder-stack";
+
+  buildPersonalFolderGroups(group.items).forEach((folderGroup) => {
+    const folderSection = document.createElement("section");
+    folderSection.className = "folder-section";
+
+    const folderHead = document.createElement("div");
+    folderHead.className = "folder-section-head";
+
+    const folderCopy = document.createElement("div");
+    folderCopy.className = "folder-section-copy";
+
+    const folderTitle = document.createElement("h4");
+    folderTitle.className = "folder-section-title";
+    folderTitle.textContent = folderGroup.title;
+
+    folderCopy.appendChild(folderTitle);
+
+    const folderSummaryText = getPersonalFolderSummary(folderGroup.title);
+    if (folderSummaryText) {
+      const folderSummary = document.createElement("p");
+      folderSummary.className = "folder-section-summary";
+      folderSummary.textContent = folderSummaryText;
+      folderCopy.appendChild(folderSummary);
+    }
+
+    const folderMeta = document.createElement("p");
+    folderMeta.className = "folder-section-meta";
+    folderMeta.textContent = getPersonalFolderMeta(folderGroup);
+
+    folderHead.append(folderCopy, folderMeta);
+    folderSection.appendChild(folderHead);
+
+    if (folderGroup.directItems.length > 0) {
+      const directGrid = document.createElement("div");
+      directGrid.className = "category-project-grid";
+      folderGroup.directItems.forEach((item) => {
+        directGrid.appendChild(buildProjectCard(template, item, folderGroup.title));
+      });
+      folderSection.appendChild(directGrid);
+    }
+
+    folderGroup.childGroups.forEach((childGroup) => {
+      const childSection = document.createElement("section");
+      childSection.className = "folder-subsection";
+
+      const childHead = document.createElement("div");
+      childHead.className = "folder-subsection-head";
+
+      const childTitle = document.createElement("h5");
+      childTitle.className = "folder-subsection-title";
+      childTitle.textContent = childGroup.displayTitle;
+
+      const childMeta = document.createElement("p");
+      childMeta.className = "folder-subsection-meta";
+      childMeta.textContent = `${childGroup.items.length} 个项目`;
+
+      childHead.append(childTitle, childMeta);
+      childSection.appendChild(childHead);
+
+      const childGrid = document.createElement("div");
+      childGrid.className = "category-project-grid";
+      childGroup.items.forEach((item) => {
+        childGrid.appendChild(buildProjectCard(template, item, `${folderGroup.title} / ${childGroup.displayTitle}`));
+      });
+
+      childSection.appendChild(childGrid);
+      folderSection.appendChild(childSection);
+    });
+
+    stack.appendChild(folderSection);
+  });
+
+  section.appendChild(stack);
+}
+
 function renderBrand() {
+  const pageContent = getPageContent();
+  document.title = pageContent.documentTitle;
+
+  const brandLink = qs(".brand-lockup");
+  if (brandLink) {
+    brandLink.href = "./index.html";
+  }
+
+  renderPrimaryNav();
   qs("#brand-mark").textContent = siteContent.brand.mark;
   qs("#brand-title").textContent = siteContent.brand.title;
   qs("#brand-subtitle").textContent = siteContent.brand.subtitle;
 
-  qs("#hero-eyebrow").textContent = siteContent.hero.eyebrow;
-  qs("#hero-title").textContent = siteContent.hero.title;
-  qs("#hero-summary").textContent = siteContent.hero.summary;
-  qs("#hero-target").textContent = siteContent.hero.target;
+  const heroEyebrow = qs("#hero-eyebrow");
+  if (heroEyebrow) {
+    heroEyebrow.textContent = pageContent.hero.eyebrow || "";
+    heroEyebrow.hidden = !pageContent.hero.eyebrow;
+  }
+  qs("#hero-title").textContent = pageContent.hero.title;
+  qs("#hero-summary").textContent = pageContent.hero.summary;
+  const heroTarget = qs("#hero-target");
+  if (heroTarget) {
+    heroTarget.textContent = pageContent.hero.target || "";
+    heroTarget.hidden = !pageContent.hero.target;
+  }
 
-  qs("#hero-primary").textContent = siteContent.hero.primaryCta.label;
-  qs("#hero-primary").href = siteContent.hero.primaryCta.href;
-  qs("#hero-secondary").textContent = siteContent.hero.secondaryCta.label;
-  qs("#hero-secondary").href = siteContent.hero.secondaryCta.href;
+  const heroActions = qs(".hero-actions");
+  const heroPrimary = qs("#hero-primary");
+  const heroSecondary = qs("#hero-secondary");
+  if (heroActions) {
+    heroActions.hidden = pageContent.hero.showActions === false;
+  }
+  if (heroPrimary && heroSecondary) {
+    heroPrimary.textContent = pageContent.hero.primaryCta.label;
+    heroPrimary.href = pageContent.hero.primaryCta.href;
+    heroSecondary.textContent = pageContent.hero.secondaryCta.label;
+    heroSecondary.href = pageContent.hero.secondaryCta.href;
+  }
 
-  qs("#hero-board-tag").textContent = siteContent.heroBoard.tag;
-  qs("#hero-board-title").textContent = siteContent.heroBoard.title;
+  const heroBoardTag = qs("#hero-board-tag");
+  heroBoardTag.textContent = pageContent.heroBoard.tag;
+  heroBoardTag.hidden = !pageContent.heroBoard.tag;
+  qs("#hero-board-title").textContent = pageContent.heroBoard.title;
 
-  qs("#project-section-tag").textContent = siteContent.projectSection.tag;
-  qs("#project-section-title").textContent = siteContent.projectSection.title;
-  qs("#project-section-intro").textContent = siteContent.projectSection.intro;
+  qs("#project-section-tag").textContent = pageContent.projectSection.tag;
+  qs("#project-section-title").textContent = pageContent.projectSection.title;
+  qs("#project-section-intro").textContent = pageContent.projectSection.intro;
 
   qs("#footer-text").textContent = siteContent.footer;
+}
+
+function fitCategoryHeroTitle() {
+  if (!isCategoryPage()) {
+    return;
+  }
+
+  const heroTitle = qs("#hero-title");
+  if (!heroTitle) {
+    return;
+  }
+
+  const rawTitle = heroTitle.dataset.rawTitle || heroTitle.textContent || "";
+  heroTitle.dataset.rawTitle = rawTitle;
+  heroTitle.textContent = Array.from(rawTitle).join("\u2060");
+  heroTitle.setAttribute("aria-label", rawTitle);
+
+  const minFontSize = 22;
+  const maxFontSize = 67;
+  const preferredFontSize = Math.max(minFontSize, Math.min(maxFontSize, window.innerWidth * 0.038));
+
+  heroTitle.style.maxWidth = "none";
+  heroTitle.style.whiteSpace = "nowrap";
+  heroTitle.style.fontSize = `${preferredFontSize}px`;
+
+  const containerWidth = heroTitle.parentElement?.clientWidth || heroTitle.clientWidth;
+  if (!containerWidth || heroTitle.scrollWidth <= containerWidth) {
+    return;
+  }
+
+  const fittedFontSize = Math.max(
+    minFontSize,
+    Math.floor((preferredFontSize * containerWidth) / heroTitle.scrollWidth)
+  );
+  heroTitle.style.fontSize = `${fittedFontSize}px`;
 }
 
 function renderStats() {
   const template = qs("#stat-template");
   const root = qs("#hero-stats");
-  const groups = groupProjects(portfolioData.projects);
-  const getGroupCount = (name) => groups.find((group) => group.category === name)?.items.length || 0;
+  root.innerHTML = "";
 
-  const stats = [
-    { value: String(getGroupCount("21年至今我管理的项目")).padStart(2, "0"), label: "管理项目" },
-    { value: String(getGroupCount("19-20年我参与的项目")).padStart(2, "0"), label: "参与项目" },
-    { value: String(getGroupCount("我的作品")).padStart(2, "0"), label: "个人作品" },
-    { value: String(portfolioData.overview.projectCount).padStart(2, "0"), label: "总项目" },
-  ];
+  let stats = [];
+  if (isHomePage()) {
+    const groups = groupProjects(ALL_PROJECT_ENTRIES);
+    const getGroupCount = (name) => groups.find((group) => group.category === name)?.items.length || 0;
+    stats = [
+      {
+        key: "21年至今我管理的项目",
+        value: formatCountValue(getGroupCount("21年至今我管理的项目")),
+        label: getCategoryContent("21年至今我管理的项目").shortLabel,
+        href: getCategoryHref("21年至今我管理的项目"),
+      },
+      {
+        key: "19-20年我参与的项目",
+        value: formatCountValue(getGroupCount("19-20年我参与的项目")),
+        label: getCategoryContent("19-20年我参与的项目").shortLabel,
+        href: getCategoryHref("19-20年我参与的项目"),
+      },
+      {
+        key: "我的作品",
+        value: formatCountValue(getGroupCount("我的作品")),
+        label: getCategoryContent("我的作品").shortLabel,
+        href: getCategoryHref("我的作品"),
+      },
+    ];
+  } else {
+    const counts = sumProjectCounts(getPageEntries());
+    stats = [
+      { value: formatCountValue(counts.projects), label: "项目数量" },
+      { value: formatCountValue(counts.renderings + counts.photos), label: "图片数量" },
+      { value: formatCountValue(counts.videos), label: "视频数量" },
+      { value: formatCountValue(counts.documents), label: "资料数量" },
+    ];
+  }
 
   stats.forEach((item) => {
     const fragment = template.content.cloneNode(true);
-    fragment.querySelector(".stat-value").textContent = item.value;
-    fragment.querySelector(".stat-label").textContent = item.label;
+    const card = fragment.querySelector(".stat-card");
+    card.querySelector(".stat-value").textContent = item.value;
+    card.querySelector(".stat-label").textContent = item.label;
+
+    if (item.href) {
+      const link = document.createElement("a");
+      link.className = "stat-card-link";
+      link.href = item.href;
+      link.dataset.pageKey = item.key;
+      link.setAttribute("aria-label", `查看${item.label}`);
+      card.classList.add("is-interactive");
+      link.appendChild(card);
+      root.appendChild(link);
+      return;
+    }
+
     root.appendChild(fragment);
   });
+
+  root.style.gridTemplateColumns = `repeat(${stats.length}, minmax(0, 1fr))`;
 }
 
 function renderHeroCategories() {
   const template = qs("#category-card-template");
   const root = qs("#hero-category-grid");
-  const groups = groupProjects(portfolioData.projects);
+  root.innerHTML = "";
+  const groups = groupProjects(ALL_PROJECT_ENTRIES);
 
   groups.forEach((group) => {
     const fragment = template.content.cloneNode(true);
     const card = fragment.querySelector(".category-card");
     const media = fragment.querySelector(".category-card-media");
     const image = fragment.querySelector("img");
+    const kicker = fragment.querySelector(".category-card-kicker");
     const firstProject = group.items[0]?.project;
     const displayTitle = group.content.displayTitle || group.category;
 
-    card.href = `#${group.sectionId}`;
-    fragment.querySelector(".category-card-kicker").textContent = group.content.shortLabel;
+    card.href = getCategoryHref(group.category);
+    card.dataset.pageKey = group.category;
+    kicker.textContent = isHomePage() ? "" : group.content.shortLabel;
+    kicker.hidden = isHomePage() || !group.content.shortLabel;
     fragment.querySelector(".category-card-title").textContent = displayTitle;
-    fragment.querySelector(".category-card-body").textContent = group.content.description;
-    fragment.querySelector(".category-card-meta").textContent = formatCategoryMeta(group);
+    fragment.querySelector(".category-card-body").textContent = group.content.cardSummary || group.content.description;
+    fragment.querySelector(".category-card-meta").textContent = formatCategoryMeta(group, "card");
+
+    if (group.category === getCurrentPageKey()) {
+      card.classList.add("is-current");
+      card.setAttribute("aria-current", "page");
+    }
 
     if (firstProject?.cover) {
       image.src = toAssetUrl(firstProject.cover);
@@ -429,12 +993,34 @@ function renderHeroCategories() {
 
 function renderCategoryLinks() {
   const root = qs("#category-links");
+  if (!root) {
+    return;
+  }
 
-  groupProjects(portfolioData.projects).forEach((group) => {
+  if (isCategoryPage()) {
+    root.hidden = true;
+    root.innerHTML = "";
+    return;
+  }
+
+  root.hidden = false;
+  root.innerHTML = "";
+
+  NAV_ITEMS.forEach((item) => {
     const link = document.createElement("a");
     link.className = "section-link";
-    link.href = `#${group.sectionId}`;
-    link.textContent = `${group.content.shortLabel} · ${group.items.length}`;
+    link.href = item.href;
+    link.dataset.pageKey = item.key;
+    if (item.key === HOME_PAGE_KEY) {
+      link.textContent = item.label;
+    } else {
+      const total = groupProjects(ALL_PROJECT_ENTRIES).find((group) => group.category === item.key)?.items.length || 0;
+      link.textContent = `${item.label} · ${total}`;
+    }
+    if (item.key === getCurrentPageKey()) {
+      link.classList.add("is-active");
+      link.setAttribute("aria-current", "page");
+    }
     root.appendChild(link);
   });
 }
@@ -442,95 +1028,59 @@ function renderCategoryLinks() {
 function renderProjects() {
   const template = qs("#project-template");
   const root = qs("#project-list");
+  if (!root) {
+    return;
+  }
 
-  groupProjects(portfolioData.projects).forEach((group) => {
+  root.innerHTML = "";
+
+  groupProjects(getPageEntries()).forEach((group) => {
     const section = document.createElement("section");
-    section.className = "category-section reveal";
+    section.className = "category-section";
     section.id = group.sectionId;
 
-    const head = document.createElement("div");
-    head.className = "category-section-head";
+    if (!isCategoryPage()) {
+      const head = document.createElement("div");
+      head.className = "category-section-head";
 
-    const copy = document.createElement("div");
-    copy.className = "category-section-copy";
-    const displayTitle = group.content.displayTitle || group.category;
+      const copy = document.createElement("div");
+      copy.className = "category-section-copy";
+      const displayTitle = group.content.displayTitle || group.category;
 
-    const tag = document.createElement("p");
-    tag.className = "section-tag";
-    tag.textContent = group.content.shortLabel;
+      const tag = document.createElement("p");
+      tag.className = "section-tag";
+      tag.textContent = group.content.shortLabel;
 
-    const title = document.createElement("h3");
-    title.className = "category-section-title";
-    title.textContent = displayTitle;
+      const title = document.createElement("h3");
+      title.className = "category-section-title";
+      title.textContent = displayTitle;
 
-    const body = document.createElement("p");
-    body.className = "category-section-body";
-    body.textContent = group.content.description;
+      const body = document.createElement("p");
+      body.className = "category-section-body";
+      body.textContent = group.content.description;
 
-    const meta = document.createElement("p");
-    meta.className = "category-section-meta";
-    meta.textContent = formatCategoryMeta(group);
+      const meta = document.createElement("p");
+      meta.className = "category-section-meta";
+      meta.textContent = formatCategoryMeta(group);
 
-    copy.append(tag, title, body);
-    head.append(copy, meta);
-    section.appendChild(head);
+      copy.append(tag, title, body);
+      head.append(copy, meta);
+      section.appendChild(head);
+    }
+
+    if (group.category === "我的作品") {
+      renderPersonalProjects(section, group, template);
+      root.appendChild(section);
+      return;
+    }
 
     const grid = document.createElement("div");
     grid.className = "category-project-grid";
 
-    group.items.forEach(({ project, index }, itemIndex) => {
-      const fragment = template.content.cloneNode(true);
-      const card = fragment.querySelector(".project-card");
-      const coverButton = fragment.querySelector(".project-cover");
-      const coverImage = fragment.querySelector(".project-cover-image");
-      const labelsRoot = fragment.querySelector(".project-labels");
-      const docsRoot = fragment.querySelector(".project-docs");
-      const mediaStrip = fragment.querySelector(".project-media-strip");
-
-      fragment.querySelector(".project-cover-label").textContent = getProjectCoverLabel(project);
-      fragment.querySelector(".project-cover-count").textContent = getProjectCoverHint(project);
-      fragment.querySelector(".project-index").textContent = `${group.content.shortLabel} / ${String(itemIndex + 1).padStart(2, "0")}`;
-      fragment.querySelector(".project-counts").textContent = formatProjectAssetCount(project);
-      fragment.querySelector(".project-title").textContent = project.name;
-      fragment.querySelector(".project-summary").textContent = project.summary;
-
-      if (project.cover) {
-        coverImage.src = toAssetUrl(project.cover);
-        coverImage.alt = `${project.name} 封面图`;
-      } else if ((project.videos || []).length > 0) {
-        coverImage.remove();
-        coverButton.classList.add("has-video");
-        coverButton.prepend(createVideoElement(project.videos[0].path, "project-cover-video", {
-          autoplay: true,
-          muted: true,
-          loop: true,
-        }));
-      } else {
-        coverImage.remove();
-        coverButton.classList.add("is-static");
-        coverButton.prepend(createFallback(project.name, getProjectFallbackDetail(project), "project-cover-fallback"));
-      }
-
-      fragment.querySelector(".project-highlights").remove();
-      ["rendering", "photo", "video"].forEach((type) => {
-        const cardNode = createMediaPreviewCard(project, index, type);
-        if (cardNode) {
-          mediaStrip.appendChild(cardNode);
-        }
-      });
-      if (!mediaStrip.children.length) {
-        mediaStrip.remove();
-      }
-      getDisplayLabels(project).forEach((label) => labelsRoot.appendChild(createPill(label)));
-      [...project.documents, ...(project.videos || [])].forEach((doc) => docsRoot.appendChild(buildDocLink(doc)));
-
-      if (project.showcaseImages.length > 0 || (project.videos || []).length > 0) {
-        coverButton.addEventListener("click", () => openLightbox(index, 0));
-      } else {
-        coverButton.disabled = true;
-      }
-
-      grid.appendChild(card);
+    group.items.forEach((item, itemIndex) => {
+      grid.appendChild(
+        buildProjectCard(template, item, `${group.content.shortLabel} / ${String(itemIndex + 1).padStart(2, "0")}`)
+      );
     });
 
     section.appendChild(grid);
@@ -577,7 +1127,7 @@ function openLightbox(projectIndex, imageIndex) {
     head.className = "dialog-media-group-head";
     head.innerHTML = `
       <p class="dialog-media-group-title">${group.label}</p>
-      <p class="dialog-media-group-count">${group.total}${group.type === "asset" ? " 项" : " 张"}</p>
+      <p class="dialog-media-group-count">${group.total}${group.type === "video" ? " 个" : group.type === "asset" ? " 项" : " 张"}</p>
     `;
 
     const grid = document.createElement("div");
@@ -716,7 +1266,7 @@ function setupReveal() {
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const items = document.querySelectorAll(".reveal");
 
-  if (reduceMotion) {
+  if (reduceMotion || isCategoryPage()) {
     items.forEach((item) => item.classList.add("is-visible"));
     return;
   }
@@ -737,46 +1287,48 @@ function setupReveal() {
   items.forEach((item) => observer.observe(item));
 }
 
-function setupActiveNav() {
-  const links = Array.from(document.querySelectorAll(".site-nav a"));
-  const linkMap = new Map(links.map((link) => [new URL(link.href).hash.replace("#", ""), link]));
-  const sections = ["overview", "projects"]
-    .map((id) => document.getElementById(id))
-    .filter(Boolean);
+function setupPageLayout() {
+  const heroSection = qs("#overview");
+  const projectSection = qs("#projects");
 
-  const setActive = (id) => {
-    links.forEach((link) => link.classList.toggle("is-active", linkMap.get(id) === link));
-  };
+  if (heroSection) {
+    heroSection.hidden = !isHomePage();
+  }
 
-  if (sections.length === 0) {
+  if (!projectSection) {
     return;
   }
 
-  const observer = new IntersectionObserver(
-    (entries) => {
-      const visible = entries
-        .filter((entry) => entry.isIntersecting)
-        .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+  projectSection.hidden = !getPageContent().showProjects;
+}
 
-      if (visible?.target?.id) {
-        setActive(visible.target.id);
-      }
-    },
-    {
-      rootMargin: "-35% 0px -50% 0px",
-      threshold: [0.2, 0.45, 0.7],
+function setupActiveNav() {
+  const currentPageKey = getCurrentPageKey();
+  document.querySelectorAll(".site-nav a, .section-link").forEach((link) => {
+    const isActive = link.dataset.pageKey === currentPageKey;
+    link.classList.toggle("is-active", isActive);
+    if (isActive) {
+      link.setAttribute("aria-current", "page");
+    } else {
+      link.removeAttribute("aria-current");
     }
-  );
-
-  sections.forEach((section) => observer.observe(section));
-  setActive("overview");
+  });
 }
 
 renderBrand();
-renderStats();
-renderHeroCategories();
-renderCategoryLinks();
-renderProjects();
+setupPageLayout();
+fitCategoryHeroTitle();
+if (isHomePage()) {
+  renderStats();
+  renderHeroCategories();
+}
+if (getPageContent().showProjects) {
+  renderCategoryLinks();
+  renderProjects();
+}
 setupDialog();
 setupReveal();
 setupActiveNav();
+
+window.addEventListener("resize", fitCategoryHeroTitle);
+document.fonts?.ready.then(fitCategoryHeroTitle);

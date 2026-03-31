@@ -7,7 +7,7 @@
       name="description"
       content="产业园、商务办公与数字界面方向的设计管理作品集，涵盖管理项目、参与项目与个人作品。"
     />
-    <title>设计管理与项目作品集</title>
+    <title>首页 | 袁润的作品集</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -16,7 +16,7 @@
     />
     <link rel="stylesheet" href="./styles.css" />
   </head>
-  <body>
+  <body data-page="home">
     <div class="page-shell">
       <header class="site-header">
         <a class="brand-lockup" href="#overview" aria-label="返回概览">
@@ -27,10 +27,7 @@
           </div>
         </a>
 
-        <nav class="site-nav" aria-label="主导航">
-          <a href="#overview">概览</a>
-          <a href="#projects">项目板块</a>
-        </nav>
+        <nav class="site-nav" aria-label="主导航"></nav>
       </header>
 
       <main>
@@ -40,11 +37,6 @@
             <h1 id="hero-title"></h1>
             <p class="hero-summary" id="hero-summary"></p>
             <p class="hero-target" id="hero-target"></p>
-
-            <div class="hero-actions">
-              <a class="button button-primary" id="hero-primary" href="#projects"></a>
-              <a class="button button-secondary" id="hero-secondary" href="#category-managed"></a>
-            </div>
 
             <div class="hero-stats" id="hero-stats"></div>
           </div>
@@ -64,7 +56,6 @@
             <h2 id="project-section-title"></h2>
             <p class="section-intro" id="project-section-intro"></p>
           </div>
-          <div class="section-links reveal" id="category-links"></div>
           <div class="project-list" id="project-list"></div>
         </section>
       </main>

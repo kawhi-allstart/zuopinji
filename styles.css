@@ -298,6 +298,7 @@ body[data-page="category"] .hero h1 {
 
 .stat-card-link {
   display: block;
+  height: 100%;
 }
 
 .stat-card,
@@ -314,28 +315,18 @@ body[data-page="category"] .hero h1 {
 .stat-card {
   position: relative;
   overflow: hidden;
+  min-height: 112px;
   padding: 16px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
   transition:
     transform 180ms ease,
     border-color 180ms ease,
     box-shadow 180ms ease,
     background-color 180ms ease;
-}
-
-.stat-card.is-interactive {
-  padding-right: 54px;
-}
-
-.stat-card.is-interactive::after {
-  content: "↗";
-  position: absolute;
-  top: 14px;
-  right: 16px;
-  color: var(--accent);
-  font-size: 1.05rem;
-  opacity: 0;
-  transform: translateX(-6px);
-  transition: opacity 180ms ease, transform 180ms ease;
 }
 
 .stat-card-link:hover .stat-card,
@@ -349,12 +340,6 @@ body[data-page="category"] .hero h1 {
 .stat-card-link:hover .stat-value,
 .stat-card-link:focus-visible .stat-value {
   color: var(--accent);
-}
-
-.stat-card-link:hover .stat-card::after,
-.stat-card-link:focus-visible .stat-card::after {
-  opacity: 1;
-  transform: translateX(0);
 }
 
 .stat-value {
@@ -389,6 +374,11 @@ body[data-page="category"] .hero h1 {
 .section-head h2 {
   max-width: 16ch;
   font-size: clamp(2rem, 4vw, 3.4rem);
+}
+
+body[data-page="category"] #project-section-title {
+  max-width: none;
+  white-space: nowrap;
 }
 
 .hero-board .section-head {
@@ -438,7 +428,11 @@ body[data-page="category"] .hero h1 {
 
 .category-card-media {
   position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   min-height: 132px;
+  padding: 10px;
   border-radius: 18px;
   overflow: hidden;
   background: var(--surface-muted);
@@ -446,10 +440,18 @@ body[data-page="category"] .hero h1 {
 
 .hero-board .category-card-media {
   min-height: 108px;
+  padding: 8px;
   border-radius: 16px;
 }
 
-.category-card-media img,
+.category-card-media img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+  object-position: center;
+}
+
 .project-cover-image,
 .project-cover-video,
 .thumb-button img,

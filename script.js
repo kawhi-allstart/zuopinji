@@ -29,6 +29,9 @@ const PERSONAL_CHILD_GROUP_ORDER = {
 const PERSONAL_PROJECT_ORDER = {
   "AI编程/网页设计": ["可视化管理系统", "公司网站"],
 };
+const CATEGORY_COVER_PREFERENCES = {
+  "我的作品": ["BIM设计稿"],
+};
 const HOME_PAGE_KEY = "home";
 const PAGE_MODE = document.body.dataset.page || HOME_PAGE_KEY;
 const PAGE_CATEGORY = document.body.dataset.category || "";
@@ -97,6 +100,19 @@ function getPageEntries() {
   return ALL_PROJECT_ENTRIES.filter(({ project }) => project.category === PAGE_CATEGORY);
 }
 
+function getCategoryCoverProject(group) {
+  const preferredProjectNames = CATEGORY_COVER_PREFERENCES[group.category] || [];
+
+  for (const projectName of preferredProjectNames) {
+    const preferredEntry = group.items.find(({ project }) => project.name === projectName);
+    if (preferredEntry?.project?.cover) {
+      return preferredEntry.project;
+    }
+  }
+
+  return group.items.find(({ project }) => project.cover)?.project || group.items[0]?.project;
+}
+
 function sumProjectCounts(entries = ALL_PROJECT_ENTRIES) {
   return entries.reduce((totals, { project }) => {
     totals.projects += 1;
@@ -162,9 +178,9 @@ function getPageContent() {
       title: "切换其他板块",
     },
     projectSection: {
-      tag: content.shortLabel,
+      tag: "",
       title: content.displayTitle,
-      intro: `${content.description} 当前页面仅展示该板块项目。`,
+      intro: content.description,
     },
     showProjects: true,
   };
@@ -564,7 +580,7 @@ function formatCategoryMeta(group, variant = "default") {
 }
 
 function formatCountValue(value) {
-  return String(value).padStart(2, "0");
+  return String(value);
 }
 
 function renderPrimaryNav() {
@@ -846,11 +862,50 @@ function renderBrand() {
   heroBoardTag.hidden = !pageContent.heroBoard.tag;
   qs("#hero-board-title").textContent = pageContent.heroBoard.title;
 
-  qs("#project-section-tag").textContent = pageContent.projectSection.tag;
+  const projectSectionTag = qs("#project-section-tag");
+  projectSectionTag.textContent = pageContent.projectSection.tag;
+  projectSectionTag.hidden = !pageContent.projectSection.tag;
   qs("#project-section-title").textContent = pageContent.projectSection.title;
   qs("#project-section-intro").textContent = pageContent.projectSection.intro;
 
   qs("#footer-text").textContent = siteContent.footer;
+}
+
+function fitTitleToSingleLine(element, options = {}) {
+  if (!element) {
+    return;
+  }
+
+  const {
+    minFontSize = 22,
+    maxFontSize = 67,
+    preferredRatio = 0.038,
+    insertWordJoiners = false,
+  } = options;
+
+  const rawTitle = element.dataset.rawTitle || element.textContent || "";
+  element.dataset.rawTitle = rawTitle;
+  element.textContent = insertWordJoiners ? Array.from(rawTitle).join("\u2060") : rawTitle;
+  element.setAttribute("aria-label", rawTitle);
+  element.style.maxWidth = "none";
+  element.style.whiteSpace = "nowrap";
+
+  const preferredFontSize = Math.max(
+    minFontSize,
+    Math.min(maxFontSize, window.innerWidth * preferredRatio)
+  );
+  element.style.fontSize = `${preferredFontSize}px`;
+
+  const containerWidth = element.parentElement?.clientWidth || element.clientWidth;
+  if (!containerWidth || element.scrollWidth <= containerWidth) {
+    return;
+  }
+
+  const fittedFontSize = Math.max(
+    minFontSize,
+    Math.floor((preferredFontSize * containerWidth) / element.scrollWidth)
+  );
+  element.style.fontSize = `${fittedFontSize}px`;
 }
 
 function fitCategoryHeroTitle() {
@@ -858,34 +913,18 @@ function fitCategoryHeroTitle() {
     return;
   }
 
-  const heroTitle = qs("#hero-title");
-  if (!heroTitle) {
-    return;
-  }
+  fitTitleToSingleLine(qs("#hero-title"), {
+    minFontSize: 22,
+    maxFontSize: 67,
+    preferredRatio: 0.038,
+    insertWordJoiners: true,
+  });
 
-  const rawTitle = heroTitle.dataset.rawTitle || heroTitle.textContent || "";
-  heroTitle.dataset.rawTitle = rawTitle;
-  heroTitle.textContent = Array.from(rawTitle).join("\u2060");
-  heroTitle.setAttribute("aria-label", rawTitle);
-
-  const minFontSize = 22;
-  const maxFontSize = 67;
-  const preferredFontSize = Math.max(minFontSize, Math.min(maxFontSize, window.innerWidth * 0.038));
-
-  heroTitle.style.maxWidth = "none";
-  heroTitle.style.whiteSpace = "nowrap";
-  heroTitle.style.fontSize = `${preferredFontSize}px`;
-
-  const containerWidth = heroTitle.parentElement?.clientWidth || heroTitle.clientWidth;
-  if (!containerWidth || heroTitle.scrollWidth <= containerWidth) {
-    return;
-  }
-
-  const fittedFontSize = Math.max(
-    minFontSize,
-    Math.floor((preferredFontSize * containerWidth) / heroTitle.scrollWidth)
-  );
-  heroTitle.style.fontSize = `${fittedFontSize}px`;
+  fitTitleToSingleLine(qs("#project-section-title"), {
+    minFontSize: 20,
+    maxFontSize: 54,
+    preferredRatio: 0.034,
+  });
 }
 
 function renderStats() {
@@ -963,7 +1002,7 @@ function renderHeroCategories() {
     const media = fragment.querySelector(".category-card-media");
     const image = fragment.querySelector("img");
     const kicker = fragment.querySelector(".category-card-kicker");
-    const firstProject = group.items[0]?.project;
+    const coverProject = getCategoryCoverProject(group);
     const displayTitle = group.content.displayTitle || group.category;
 
     card.href = getCategoryHref(group.category);
@@ -979,8 +1018,8 @@ function renderHeroCategories() {
       card.setAttribute("aria-current", "page");
     }
 
-    if (firstProject?.cover) {
-      image.src = toAssetUrl(firstProject.cover);
+    if (coverProject?.cover) {
+      image.src = toAssetUrl(coverProject.cover);
       image.alt = `${displayTitle} 封面图`;
     } else {
       image.remove();

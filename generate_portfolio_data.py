@@ -56,9 +56,62 @@ FOLDER_DISPLAY_LABELS = {
     "su设计稿": "SketchUp",
 }
 
+AI_PROGRAMMING_BASE_LABELS = {
+    "网页设计": ["Python", "数据库"],
+    "App开发": ["Java", "数据库"],
+    "桌面应用开发": ["Python"],
+}
+
+AI_PROJECT_EXTRA_LABELS = {
+    "可视化管理系统": ["数据可视化", "管理后台"],
+    "公司网站": ["企业官网", "响应式"],
+    "K线预测分析": ["数据分析", "量化研究"],
+    "预警器系统": ["实时预警", "监控面板"],
+    "情绪分析系统": ["情感分析", "视频演示"],
+    "家庭储物": ["移动端", "生活工具"],
+    "家庭储物系统": ["移动端", "生活工具"],
+    "情侣评分系统": ["移动端", "互动产品"],
+    "工作助手": ["自动化", "效率工具"],
+}
+
 PROJECT_COVER_OVERRIDES = {
     "鄂州网驿科技港": "H22120533-bd-hqw-wqqg (1).jpg",
     "江门网驿智造科技港": "2022-03-2.jpg",
+    "湘潭网驿电子信息产业园": "H21100556_bd-c01-hqw-wzy (2).jpg",
+    "情侣评分系统": "df034cf08fcb62d30e1473629dc52a6f.jpg",
+    "可视化管理系统": "屏幕截图 2026-03-31 201347.png",
+    "公司网站": "屏幕截图 2026-03-31 200924.png",
+}
+
+PROJECT_TITLE_OVERRIDES = {
+    "BIM设计稿": "博亚时代中心项目全专业BIM设计",
+    "su设计稿": "产业园区项目拿地强排方案su模型",
+    "可视化管理系统": "可视化管理系统开发",
+    "公司网站": "公司网站设计",
+    "K线预测分析": "K线预测分析系统开发",
+    "情绪分析系统": "市场情绪分析系统开发",
+    "预警器系统": "预警器系统设计与开发",
+    "工作助手": "工作助手系统设计与开发",
+    "家庭储物系统": "家庭储物系统设计与开发",
+    "情侣评分系统": "情侣评分系统设计与开发",
+}
+
+IGNORED_PROJECT_NAMES = {
+    "手游",
+}
+
+EMPTY_SUMMARY_PROJECTS = {
+    "BIM设计稿",
+    "su设计稿",
+    "可视化管理系统",
+    "公司网站",
+    "预警器系统",
+    "情绪分析系统",
+    "K线预测分析",
+    "家庭储物系统",
+    "情侣评分系统",
+    "手游",
+    "工作助手",
 }
 
 CATEGORY_ORDER = {name: index for index, name in enumerate(CATEGORY_LABELS)}
@@ -109,6 +162,26 @@ def get_category_label(category_name: str | None) -> str:
 
 def format_folder_label(text: str) -> str:
     return FOLDER_DISPLAY_LABELS.get(text, text)
+
+
+def append_unique(target: list[str], values: list[str]) -> None:
+    for value in values:
+        if value and value not in target:
+            target.append(value)
+
+
+def get_ai_programming_labels(project_dir: Path, project_name: str, lineage_labels: list[str]) -> list[str]:
+    if "AI编程" not in lineage_labels:
+        return []
+
+    labels: list[str] = []
+    subgroup = lineage_labels[1] if len(lineage_labels) > 1 else ""
+    append_unique(labels, AI_PROGRAMMING_BASE_LABELS.get(subgroup, []))
+
+    for candidate in (project_dir.name, project_name):
+        append_unique(labels, AI_PROJECT_EXTRA_LABELS.get(candidate, []))
+
+    return labels
 
 
 def get_project_sort_priority(category_name: str, project_name: str) -> int:
@@ -364,16 +437,11 @@ def build_asset_summary(render_count: int, photo_count: int, doc_count: int, vid
 
 
 def normalize_description(project_name: str, description: str | None) -> str | None:
+    if project_name in EMPTY_SUMMARY_PROJECTS:
+        return ""
+
     if not description:
         return None
-
-    overrides = {
-        "BIM设计稿": "BIM设计稿聚焦 BIM 建模与空间漫游表达，展示室内及地下空间的组织、路径推演与汇报呈现能力。",
-        "su设计稿": "su设计稿聚焦 SketchUp 建模与体量推敲，展示产业园与厂房类方案的空间判断与模型表达能力。",
-    }
-
-    if project_name in overrides:
-        return overrides[project_name]
 
     return description
 
@@ -388,7 +456,7 @@ def build_summary(
     video_count: int,
     description: str | None,
 ) -> str:
-    if description:
+    if description is not None:
         return description
 
     asset_summary = build_asset_summary(render_count, photo_count, doc_count, video_count)
@@ -413,7 +481,7 @@ def build_summary(
         return f"{project_name} 用于展示项目参与阶段的方案表达与空间设计能力。"
 
     if category_name == "我的作品":
-        if "BIM设计稿" in lineage_labels or project_name == "BIM设计稿":
+        if "BIM设计稿" in lineage_labels or "BIM设计稿" in project_name:
             return f"{project_name} 聚焦 BIM 建模与空间漫游表达，展示室内及地下空间的组织、路径推演与汇报呈现能力。"
         if "SketchUp" in lineage_labels or project_name == "su设计稿":
             return f"{project_name} 聚焦 SketchUp 建模与体量推敲，展示产业园与厂房类方案的空间判断与模型表达能力。"
@@ -428,6 +496,9 @@ def build_summary(
 
 def build_project(project_dir: Path, category_name: str | None = None) -> dict[str, object] | None:
     if not project_dir.is_dir():
+        return None
+
+    if project_dir.name in IGNORED_PROJECT_NAMES:
         return None
 
     named_subfolders: dict[str, Path] = {}
@@ -457,8 +528,9 @@ def build_project(project_dir: Path, category_name: str | None = None) -> dict[s
     ]
     documents = document_files
     text_meta = parse_text_metadata(description_files) or parse_text_metadata(root_documents)
-    project_name = text_meta.get("title") or project_dir.name
-    description = normalize_description(project_name, text_meta.get("summary"))
+    raw_project_name = text_meta.get("title") or project_dir.name
+    project_name = PROJECT_TITLE_OVERRIDES.get(raw_project_name, raw_project_name)
+    description = normalize_description(raw_project_name, text_meta.get("summary"))
     lineage_labels: list[str] = []
     if category_name:
         category_root = LIBRARY_DIR / category_name
@@ -474,7 +546,7 @@ def build_project(project_dir: Path, category_name: str | None = None) -> dict[s
         return None
 
     visual_assets = rendering_images or real_photos
-    override_name = PROJECT_COVER_OVERRIDES.get(project_name) or PROJECT_COVER_OVERRIDES.get(project_dir.name)
+    override_name = PROJECT_COVER_OVERRIDES.get(raw_project_name) or PROJECT_COVER_OVERRIDES.get(project_dir.name)
     override_cover = None
     if override_name:
         override_cover = next((path for path in rendering_images + real_photos if path.name == override_name), None)
@@ -497,6 +569,7 @@ def build_project(project_dir: Path, category_name: str | None = None) -> dict[s
     for lineage_label in lineage_labels:
         if lineage_label not in labels:
             labels.append(lineage_label)
+    append_unique(labels, get_ai_programming_labels(project_dir, project_name, lineage_labels))
     for custom_label in text_meta.get("labels", []):
         if custom_label not in labels:
             labels.append(custom_label)
@@ -510,7 +583,7 @@ def build_project(project_dir: Path, category_name: str | None = None) -> dict[s
     )
 
     return {
-        "slug": make_slug(project_name),
+        "slug": make_slug(raw_project_name),
         "category": category_name or "项目归档",
         "categoryLabel": get_category_label(category_name),
         "sourcePath": normalize_path(project_dir),

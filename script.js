@@ -27,10 +27,10 @@ const PERSONAL_CHILD_GROUP_ORDER = {
   "AI编程": ["网页设计", "App开发", "桌面应用开发"],
 };
 const PERSONAL_PROJECT_ORDER = {
-  "AI编程/网页设计": ["可视化管理系统", "公司网站"],
+  "AI编程/网页设计": ["可视化管理系统开发", "公司网站设计"],
 };
 const CATEGORY_COVER_PREFERENCES = {
-  "我的作品": ["BIM设计稿"],
+  "我的作品": ["博亚时代中心项目全专业BIM设计"],
 };
 const HOME_PAGE_KEY = "home";
 const PAGE_MODE = document.body.dataset.page || HOME_PAGE_KEY;
@@ -221,6 +221,12 @@ function buildDocLink(doc) {
   link.rel = "noreferrer";
   link.textContent = `${doc.extension.toUpperCase()} · ${doc.name}`;
   return link;
+}
+
+function renderDocLinks(root, documents = []) {
+  root.innerHTML = "";
+  root.hidden = documents.length === 0;
+  documents.forEach((doc) => root.appendChild(buildDocLink(doc)));
 }
 
 function createVideoElement(path, className, options = {}) {
@@ -493,6 +499,19 @@ function getProjectSourcePath(project) {
   return project.sourcePath || [...getProjectLineage(project), project.name].join("/");
 }
 
+function getPersonalTopFolderTitle(project) {
+  const lineage = getProjectLineage(project);
+  if (lineage.length > 0) {
+    return formatPersonalLabel(lineage[0]);
+  }
+
+  const sourceFolder = (project.sourcePath || "")
+    .split("/")
+    .filter(Boolean)
+    .pop();
+  return formatPersonalLabel(sourceFolder || project.name);
+}
+
 function comparePath(a, b) {
   const normalizedA = a.toLowerCase();
   const normalizedB = b.toLowerCase();
@@ -625,7 +644,9 @@ function buildProjectCard(template, item, indexLabel) {
   fragment.querySelector(".project-index").textContent = indexLabel;
   fragment.querySelector(".project-counts").textContent = formatProjectAssetCount(project);
   fragment.querySelector(".project-title").textContent = project.name;
-  fragment.querySelector(".project-summary").textContent = project.summary;
+  const projectSummary = fragment.querySelector(".project-summary");
+  projectSummary.textContent = project.summary || "";
+  projectSummary.hidden = !project.summary;
 
   if ((project.videos || []).length > 0) {
     coverImage.remove();
@@ -656,7 +677,7 @@ function buildProjectCard(template, item, indexLabel) {
   }
 
   getDisplayLabels(project).forEach((label) => labelsRoot.appendChild(createPill(label)));
-  [...project.documents, ...(project.videos || [])].forEach((doc) => docsRoot.appendChild(buildDocLink(doc)));
+  renderDocLinks(docsRoot, project.documents);
 
   if (project.showcaseImages.length > 0 || (project.videos || []).length > 0) {
     const coverOpenIndex = (project.videos || []).length > 0 ? getFirstGalleryIndex(project, "video") : 0;
@@ -673,7 +694,7 @@ function buildPersonalFolderGroups(items) {
 
   items.forEach((item) => {
     const lineage = getProjectLineage(item.project);
-    const topTitle = formatPersonalLabel(lineage[0] || item.project.name);
+    const topTitle = getPersonalTopFolderTitle(item.project);
     if (!folderMap.has(topTitle)) {
       folderMap.set(topTitle, {
         title: topTitle,
@@ -1141,7 +1162,9 @@ function openLightbox(projectIndex, imageIndex) {
   lightboxState.imageIndex = Math.max(0, Math.min(imageIndex, galleryEntries.length - 1));
 
   qs("#dialog-title").textContent = project.name;
-  qs("#dialog-summary").textContent = project.summary;
+  const dialogSummary = qs("#dialog-summary");
+  dialogSummary.textContent = project.summary || "";
+  dialogSummary.hidden = !project.summary;
 
   const categoryLabel = getCategoryContent(project.category).shortLabel;
   qs("#dialog-project-label").textContent = `${categoryLabel} · 项目详情`;
@@ -1153,8 +1176,7 @@ function openLightbox(projectIndex, imageIndex) {
   });
 
   const docsRoot = qs("#dialog-docs");
-  docsRoot.innerHTML = "";
-  [...project.documents, ...(project.videos || [])].forEach((doc) => docsRoot.appendChild(buildDocLink(doc)));
+  renderDocLinks(docsRoot, project.documents);
 
   const thumbsRoot = qs("#dialog-thumbs");
   thumbsRoot.innerHTML = "";

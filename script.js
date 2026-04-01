@@ -19,15 +19,16 @@ const PERSONAL_FOLDER_ORDER = [
   "su设计稿",
 ];
 const PERSONAL_LABEL_DISPLAY = {
+  "AI编程": "ai编程探索",
   "APP开发": "App开发",
   "桌面程序": "桌面应用开发",
   "桌面程序设计": "桌面应用开发",
 };
 const PERSONAL_CHILD_GROUP_ORDER = {
-  "AI编程": ["网页设计", "App开发", "桌面应用开发"],
+  "ai编程探索": ["网页设计", "App开发", "桌面应用开发"],
 };
 const PERSONAL_PROJECT_ORDER = {
-  "AI编程/网页设计": ["可视化管理系统开发", "公司网站设计"],
+  "ai编程探索/网页设计": ["可视化管理系统开发", "公司网站设计"],
 };
 const CATEGORY_COVER_PREFERENCES = {
   "我的作品": ["博亚时代中心项目全专业BIM设计"],
@@ -757,7 +758,7 @@ function getPersonalFolderSummary(folderTitle) {
   if (!orderedTitles || orderedTitles.length === 0) {
     return "";
   }
-  return `分板块：${orderedTitles.join(" / ")}`;
+  return `分板块：${orderedTitles.join(" | ")}`;
 }
 
 function renderPersonalProjects(section, group, template) {

@@ -6,10 +6,13 @@ import re
 from datetime import datetime
 from pathlib import Path
 
+from PIL import Image, ImageOps, UnidentifiedImageError
+
 
 ROOT = Path(__file__).resolve().parent
 LIBRARY_DIR = ROOT / "作品库"
 OUTPUT_FILE = ROOT / "portfolio-data.js"
+THUMBNAIL_DIR = ROOT / "generated" / "image-variants"
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".avif"}
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".webm", ".m4v"}
@@ -139,6 +142,21 @@ IMAGE_FORMAT_PRIORITY = {
     ".gif": 2,
     ".bmp": 2,
 }
+IMAGE_VARIANT_SPECS = {
+    "card": {
+        "folder": "card",
+        "max_size": (1600, 1000),
+        "quality": 82,
+    },
+    "tile": {
+        "folder": "tile",
+        "max_size": (480, 360),
+        "quality": 74,
+    },
+}
+IMAGE_VARIANT_CACHE: dict[tuple[str, str], str] = {}
+
+Image.MAX_IMAGE_PIXELS = None
 
 
 def natural_sort_key(text: str) -> list[object]:
@@ -152,6 +170,64 @@ def make_slug(text: str) -> str:
 
 def normalize_path(path: Path) -> str:
     return path.relative_to(ROOT).as_posix()
+
+
+def ensure_thumbnail_dir() -> None:
+    THUMBNAIL_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def get_thumbnail_output_path(path: Path, variant: str) -> Path:
+    spec = IMAGE_VARIANT_SPECS[variant]
+    fingerprint = hashlib.sha1(f"{normalize_path(path)}::{variant}".encode("utf-8")).hexdigest()[:20]
+    return THUMBNAIL_DIR / spec["folder"] / f"{fingerprint}.webp"
+
+
+def save_image_variant(path: Path, variant: str) -> str:
+    cache_key = (normalize_path(path), variant)
+    if cache_key in IMAGE_VARIANT_CACHE:
+        return IMAGE_VARIANT_CACHE[cache_key]
+
+    target = get_thumbnail_output_path(path, variant)
+    source_mtime = path.stat().st_mtime
+    target.parent.mkdir(parents=True, exist_ok=True)
+
+    if not target.exists() or target.stat().st_mtime < source_mtime:
+        spec = IMAGE_VARIANT_SPECS[variant]
+        try:
+            with Image.open(path) as raw_image:
+                image = ImageOps.exif_transpose(raw_image)
+                image.load()
+                has_alpha = "A" in image.getbands()
+
+                if has_alpha and image.mode != "RGBA":
+                    image = image.convert("RGBA")
+                if not has_alpha and image.mode != "RGB":
+                    image = image.convert("RGB")
+
+                image.thumbnail(spec["max_size"], Image.Resampling.LANCZOS)
+                image.save(
+                    target,
+                    format="WEBP",
+                    quality=spec["quality"],
+                    method=6,
+                )
+        except (UnidentifiedImageError, OSError, ValueError):
+            fallback = normalize_path(path)
+            IMAGE_VARIANT_CACHE[cache_key] = fallback
+            return fallback
+
+    variant_path = normalize_path(target)
+    IMAGE_VARIANT_CACHE[cache_key] = variant_path
+    return variant_path
+
+
+def register_image_variants(paths: list[Path], registry: dict[str, dict[str, str]]) -> None:
+    for path in paths:
+        normalized = normalize_path(path)
+        variant_entry = registry.setdefault(normalized, {})
+        for variant in IMAGE_VARIANT_SPECS:
+            if variant not in variant_entry:
+                variant_entry[variant] = save_image_variant(path, variant)
 
 
 def get_category_label(category_name: str | None) -> str:
@@ -494,7 +570,11 @@ def build_summary(
     return f"{project_name} 用于展示相关项目成果与设计输出。"
 
 
-def build_project(project_dir: Path, category_name: str | None = None) -> dict[str, object] | None:
+def build_project(
+    project_dir: Path,
+    category_name: str | None = None,
+    image_variant_registry: dict[str, dict[str, str]] | None = None,
+) -> dict[str, object] | None:
     if not project_dir.is_dir():
         return None
 
@@ -556,6 +636,9 @@ def build_project(project_dir: Path, category_name: str | None = None) -> dict[s
     if cover and visual_assets:
         showcase_images = [cover] + [path for path in showcase_images if path != cover]
     previews = showcase_images[:3]
+
+    if image_variant_registry is not None:
+        register_image_variants(showcase_images, image_variant_registry)
 
     labels = []
     if rendering_images:
@@ -632,8 +715,14 @@ def build_project(project_dir: Path, category_name: str | None = None) -> dict[s
 
 
 def main() -> None:
+    ensure_thumbnail_dir()
     project_dirs = discover_project_dirs()
-    projects = [project for category_name, path in project_dirs if (project := build_project(path, category_name))]
+    image_variants: dict[str, dict[str, str]] = {}
+    projects = [
+        project
+        for category_name, path in project_dirs
+        if (project := build_project(path, category_name, image_variants))
+    ]
     projects.sort(
         key=lambda item: (
             CATEGORY_ORDER.get(str(item["category"]), len(CATEGORY_ORDER)),  # type: ignore[index]
@@ -669,6 +758,7 @@ def main() -> None:
         "generatedAt": datetime.now().isoformat(timespec="seconds"),
         "overview": overview,
         "categories": categories,
+        "imageVariants": image_variants,
         "projects": projects,
     }
 

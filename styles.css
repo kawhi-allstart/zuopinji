@@ -37,6 +37,10 @@ body {
     linear-gradient(180deg, #f7f3ec 0%, var(--bg) 48%, #efe7db 100%);
 }
 
+body[data-page="category"] #overview {
+  display: none;
+}
+
 body.dialog-open {
   overflow: hidden;
 }
@@ -431,6 +435,7 @@ body[data-page="category"] #project-section-title {
   display: flex;
   align-items: center;
   justify-content: center;
+  contain: paint;
   min-height: 132px;
   padding: 10px;
   border-radius: 18px;
@@ -674,10 +679,16 @@ body[data-page="category"] #project-section-title {
   box-shadow: 0 12px 30px rgba(32, 38, 46, 0.05);
 }
 
+body[data-page="category"] .project-card {
+  content-visibility: auto;
+  contain-intrinsic-size: 820px;
+}
+
 .project-cover {
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 10;
+  contain: paint;
   padding: 0;
   border: 0;
   overflow: hidden;
@@ -765,6 +776,7 @@ body[data-page="category"] #project-section-title {
 .project-media-thumb {
   display: block;
   aspect-ratio: 4 / 3;
+  contain: paint;
   border-radius: 14px;
   overflow: hidden;
   background: var(--surface-muted);

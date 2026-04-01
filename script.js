@@ -3,6 +3,7 @@ const portfolioData = window.portfolioData;
 
 const qs = (selector) => document.querySelector(selector);
 const toAssetUrl = (path) => path.split("/").map(encodeURIComponent).join("/");
+const IMAGE_VARIANTS = portfolioData.imageVariants || {};
 const lightboxState = {
   projectIndex: 0,
   imageIndex: 0,
@@ -68,6 +69,36 @@ const MEDIA_META = {
     coverHint: "点击查看全部资料",
   },
 };
+
+function getImageAssetPath(path, variant = "full") {
+  if (!path || variant === "full") {
+    return path;
+  }
+  return IMAGE_VARIANTS[path]?.[variant] || path;
+}
+
+function setImageAsset(image, path, options = {}) {
+  if (!image || !path) {
+    return;
+  }
+
+  const {
+    alt = "",
+    variant = "full",
+    loading = "lazy",
+    decoding = "async",
+    fetchPriority,
+  } = options;
+
+  image.src = toAssetUrl(getImageAssetPath(path, variant));
+  image.alt = alt;
+  image.loading = loading;
+  image.decoding = decoding;
+
+  if (fetchPriority) {
+    image.fetchPriority = fetchPriority;
+  }
+}
 
 function getCategoryContent(name) {
   return siteContent.categories[name] || {
@@ -446,9 +477,10 @@ function createMediaPreviewCard(project, projectIndex, type) {
     thumb.appendChild(createVideoElement(previewPath, "project-media-video", { autoplay: true, muted: true, loop: true }));
   } else {
     const image = document.createElement("img");
-    image.src = toAssetUrl(previewPath);
-    image.alt = `${project.name} ${MEDIA_META[type].label}预览`;
-    image.loading = "lazy";
+    setImageAsset(image, previewPath, {
+      alt: `${project.name} ${MEDIA_META[type].label}预览`,
+      variant: "tile",
+    });
     thumb.appendChild(image);
   }
 
@@ -658,8 +690,10 @@ function buildProjectCard(template, item, indexLabel) {
       loop: true,
     }));
   } else if (project.cover) {
-    coverImage.src = toAssetUrl(project.cover);
-    coverImage.alt = `${project.name} 封面图`;
+    setImageAsset(coverImage, project.cover, {
+      alt: `${project.name} 封面图`,
+      variant: "card",
+    });
   } else {
     coverImage.remove();
     coverButton.classList.add("is-static");
@@ -949,6 +983,18 @@ function fitCategoryHeroTitle() {
   });
 }
 
+let pendingTitleFitFrame = 0;
+function scheduleCategoryTitleFit() {
+  if (pendingTitleFitFrame) {
+    cancelAnimationFrame(pendingTitleFitFrame);
+  }
+
+  pendingTitleFitFrame = window.requestAnimationFrame(() => {
+    pendingTitleFitFrame = 0;
+    fitCategoryHeroTitle();
+  });
+}
+
 function renderStats() {
   const template = qs("#stat-template");
   const root = qs("#hero-stats");
@@ -1041,8 +1087,12 @@ function renderHeroCategories() {
     }
 
     if (coverProject?.cover) {
-      image.src = toAssetUrl(coverProject.cover);
-      image.alt = `${displayTitle} 封面图`;
+      setImageAsset(image, coverProject.cover, {
+        alt: `${displayTitle} 封面图`,
+        variant: "card",
+        loading: "eager",
+        fetchPriority: "high",
+      });
     } else {
       image.remove();
       media.appendChild(createFallback(group.content.shortLabel, "资料归档", "category-fallback"));
@@ -1212,8 +1262,10 @@ function openLightbox(projectIndex, imageIndex) {
         button.append(createVideoElement(entry.path, "thumb-video", { autoplay: true, muted: true, loop: true }), label);
       } else {
         const image = document.createElement("img");
-        image.src = toAssetUrl(entry.path);
-        image.alt = `${project.name} ${entry.label}`;
+        setImageAsset(image, entry.path, {
+          alt: `${project.name} ${entry.label}`,
+          variant: "tile",
+        });
         button.append(image, label);
       }
 
@@ -1379,7 +1431,7 @@ function setupActiveNav() {
 
 renderBrand();
 setupPageLayout();
-fitCategoryHeroTitle();
+scheduleCategoryTitleFit();
 if (isHomePage()) {
   renderStats();
   renderHeroCategories();
@@ -1392,5 +1444,5 @@ setupDialog();
 setupReveal();
 setupActiveNav();
 
-window.addEventListener("resize", fitCategoryHeroTitle);
-document.fonts?.ready.then(fitCategoryHeroTitle);
+window.addEventListener("resize", scheduleCategoryTitleFit);
+document.fonts?.ready.then(scheduleCategoryTitleFit);
